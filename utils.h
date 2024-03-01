@@ -15,6 +15,8 @@
 #define WINDOW_SIZE 5
 #define TIMEOUT 2
 #define MAX_SEQUENCE 1024
+#define PACKET_SIZE 1200
+#define BUFFER_SIZE 50
 
 
 
@@ -27,17 +29,28 @@ struct packet {
     char last;
     unsigned int length;
     char payload[PAYLOAD_SIZE];
+    int is_handshake;
+    int total_pck_num;
+
 };
 
 // Utility function to build a packet
-void build_packet(struct packet* pkt, unsigned short seqnum, unsigned short acknum, char last, char ack,unsigned int length, const char* payload) {
+void build_packet(struct packet* pkt, unsigned short seqnum, unsigned short acknum, char last,
+        char ack,unsigned int length, const char* payload, int is_handshake, int total_pck_num) {
     pkt->seqnum = seqnum;
     pkt->acknum = acknum;
     pkt->ack = ack;
     pkt->last = last;
     pkt->length = length;
+    pkt->is_handshake = is_handshake;
+    pkt->total_pck_num = total_pck_num;
     memcpy(pkt->payload, payload, length);
 }
+
+struct buffer_unit{
+    struct packet pkt;
+    int is_received;
+};
 
 // Utility function to print a packet
 void printRecv(struct packet* pkt) {
