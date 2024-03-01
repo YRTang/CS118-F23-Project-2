@@ -1,2 +1,12 @@
 Please concisely describe your congestion control scheme here.
 No need to be verbose, brief descriptions/bullet points are preferred.
+
+Points to notice:
+1. Client-proxy-server:
+    6001 -> 5002 -> 6002
+    6002 -> 5001 -> 6001
+2. Packts can be lost or reordered
+3. Max packet size is 1200 Bytes
+4. Question: may only use UDP socket??
+5. Fix timeout should be sufficient
+6. Two options to implement RDT: Go-Back-N or Selective Repeat
