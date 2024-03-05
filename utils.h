@@ -7,10 +7,10 @@
 // MACROS
 #define SERVER_IP "127.0.0.1"
 #define LOCAL_HOST "127.0.0.1"
-#define SERVER_PORT_TO 5002
+#define SERVER_PORT_TO 6001//5002
 #define CLIENT_PORT 6001
 #define SERVER_PORT 6002
-#define CLIENT_PORT_TO 5001
+#define CLIENT_PORT_TO 6002//5001
 #define PAYLOAD_SIZE 1024
 #define WINDOW_SIZE 5
 #define TIMEOUT 2
@@ -25,8 +25,8 @@
 struct packet {
     unsigned short seqnum;
     unsigned short acknum;
-    char ack;
-    char last;
+    //char ack;
+    //char last;
     unsigned int length;
     char payload[PAYLOAD_SIZE];
     int is_handshake;
@@ -35,12 +35,12 @@ struct packet {
 };
 
 // Utility function to build a packet
-void build_packet(struct packet* pkt, unsigned short seqnum, unsigned short acknum, char last,
-        char ack,unsigned int length, const char* payload, int is_handshake, int total_pck_num) {
+void build_packet(struct packet* pkt, unsigned short seqnum, unsigned short acknum,
+                unsigned int length, const char* payload, int is_handshake, int total_pck_num) {
     pkt->seqnum = seqnum;
     pkt->acknum = acknum;
-    pkt->ack = ack;
-    pkt->last = last;
+    //pkt->ack = ack;
+    //pkt->last = last;
     pkt->length = length;
     pkt->is_handshake = is_handshake;
     pkt->total_pck_num = total_pck_num;
