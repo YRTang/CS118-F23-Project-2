@@ -104,11 +104,11 @@ int main(int argc, char *argv[]) {
     // struct packet ack_pkt;
     // char buffer[PAYLOAD_SIZE];
     short seq_num = 0;
-    short ack_num = 0;
+    short ack_num = (-1) * INITIAL_WINDOW_SIZE;
     // char last = 0;
     // char ack = 0;
 
-    //struct packet buffer[BUFFER_SIZE];
+    struct packet unacked_buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
     tv.tv_sec = 0;
@@ -177,10 +177,10 @@ int main(int argc, char *argv[]) {
 
     set_socket_timeout(listen_sockfd, tv);
 
-    int connected = 0;
-    connected = recv_ack(listen_sockfd, &server_addr_from, addr_size);
+    // the server will send SYN (ack_num) = 1 if the handshake is established
+    int recv_SYN = recv_ack(listen_sockfd, &server_addr_from, addr_size);
 
-    while (!connected){
+    while (recv_SYN != SYN_NUM){
         send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
         connected = recv_ack(listen_sockfd, &server_addr_from, addr_size);
     }
@@ -189,8 +189,6 @@ int main(int argc, char *argv[]) {
     // TODO: select random seq_num
     // srand(time(NULL));   // initialization
     // seq_num = rand();
-    seq_num++; //=1
-    //ack_num++; //=1
 
     // Consistently send packets to the server, and receive ACK
     // Send: Initially N packets (window_size = N); Later, 1 packet at a time
@@ -200,7 +198,7 @@ int main(int argc, char *argv[]) {
         send_ready_packets(&seq_num, ack_num, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
 
         // buffer packet
-        //buffer_packet(&pkt, buffer, ack_num);
+        buffer_packet(&pkt, unacked_buffer, ack_num);
 
         // receive ack
         ack_num =  recv_ack(listen_sockfd, &server_addr_from, addr_size);

@@ -15,7 +15,7 @@ int main() {
     struct sockaddr_in server_addr, client_addr_from, client_addr_to;
     struct packet cur_pkt;
     socklen_t addr_size = sizeof(client_addr_from);
-    int expected_seq_num = 1;
+    int expected_seq_num;
     // int recv_len;
     // struct packet ack_pkt;
     struct buffer_unit recv_buffer[BUFFER_SIZE];
@@ -72,23 +72,25 @@ int main() {
     //fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
 
     //send ack back to client
-    sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+    sendto(send_sockfd, &SYN_NUM, sizeof(SYN_NUM), 0, (struct sockaddr *)&client_addr_to, addr_size);
     
 
     //receive until non-handshake msg
     while (cur_pkt.is_handshake){
         // receive handshake msg but not store it, send ack back
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
-        sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        sendto(send_sockfd, &SYN_NUM, sizeof(SYN_NUM), 0, (struct sockaddr *)&client_addr_to, addr_size);
     }
 
-    // store first non-handshake packet, pkt.seqnum = 1
+    // store first non-handshake packet, pkt.seqnum = 0
+    // This method can ONLY work when the initial sending window is 1
+    // otherwise, there will be re-order issue of storing data
     fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
-    expected_seq_num++;
+    expected_seq_num = 1; // Next expected seq_num is 1
 
     // receive all packets
     for (;;) {
-        if (expected_seq_num > num_packets){
+        if (expected_seq_num >= num_packets){
             printf("breaked\n");
             break;
         }
