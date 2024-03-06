@@ -26,12 +26,12 @@ int add_to_buffer(struct packet *pkt, struct packet *buffer, short last_acked_nu
     int idx = pkt->seqnum - last_acked_num;
     if (idx < 0)
     {
-        printf("Already received ACK up to packet %d, which occurs after packet %d\n", ack_num, pkt->seqnum);
+        printf("Already received ACK up to packet %d, which occurs after packet %d\n", last_acked_num, pkt->seqnum);
         return -1;
     }
     if (idx >= BUFFER_SIZE)
     {
-        printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, ack_num);
+        printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, last_acked_num);
         return -1;
     }
     buffer[idx] = *pkt;
@@ -95,8 +95,7 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
     return ack_num;
 }
 
-void update_buffer(struct packet *buffer, int ack_num){
-    int recv_count = pkt->seqnum - last_acked_num;
+void update_buffer(struct packet *buffer, int recv_count){
     for (int i = recv_count; i < BUFFER_SIZE; i++)
     {
         buffer[i - recv_count] = buffer[i];
@@ -229,8 +228,8 @@ int main(int argc, char *argv[]) {
         }
         else{
             // Normal case
+            update_buffer(unacked_buffer, newly_acked-ack_num);
             ack_num = newly_acked;
-            update_buffer(unacked_buffer, ack_num);
             duplicate_ack_count = 0;
         }
     }
