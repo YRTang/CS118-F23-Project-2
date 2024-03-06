@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     // char last = 0;
     // char ack = 0;
 
-    struct packet unacked_buffer[BUFFER_SIZE];
+    //struct packet unacked_buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
     tv.tv_sec = 0;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 
     while (recv_SYN != SYN_NUM){
         send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
-        connected = recv_ack(listen_sockfd, &server_addr_from, addr_size);
+        recv_SYN = recv_ack(listen_sockfd, &server_addr_from, addr_size);
     }
     printf("Connection established\n");
 
@@ -194,11 +194,11 @@ int main(int argc, char *argv[]) {
     // Send: Initially N packets (window_size = N); Later, 1 packet at a time
     // Receive: One ACK_packet at a time
     // seq_num = [1:packet_num], ack_num = [0:packet_num]
-    while (ack_num < packet_num){
+    while (ack_num < packet_num-1){
         send_ready_packets(&seq_num, ack_num, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
 
         // buffer packet
-        buffer_packet(&pkt, unacked_buffer, ack_num);
+        //buffer_packet(&pkt, unacked_buffer, ack_num);
 
         // receive ack
         ack_num =  recv_ack(listen_sockfd, &server_addr_from, addr_size);

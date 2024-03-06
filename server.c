@@ -16,6 +16,7 @@ int main() {
     struct packet cur_pkt;
     socklen_t addr_size = sizeof(client_addr_from);
     int expected_seq_num;
+    const int syn_num = 1;
     // int recv_len;
     // struct packet ack_pkt;
     struct buffer_unit recv_buffer[BUFFER_SIZE];
@@ -72,21 +73,29 @@ int main() {
     //fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
 
     //send ack back to client
-    sendto(send_sockfd, &SYN_NUM, sizeof(SYN_NUM), 0, (struct sockaddr *)&client_addr_to, addr_size);
+    sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
     
-
-    //receive until non-handshake msg
-    while (cur_pkt.is_handshake){
-        // receive handshake msg but not store it, send ack back
-        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
-        sendto(send_sockfd, &SYN_NUM, sizeof(SYN_NUM), 0, (struct sockaddr *)&client_addr_to, addr_size);
-    }
-
-    // store first non-handshake packet, pkt.seqnum = 0
+    // Keep receiving potential duplicated hanshake msg
     // This method can ONLY work when the initial sending window is 1
     // otherwise, there will be re-order issue of storing data
-    fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
-    expected_seq_num = 1; // Next expected seq_num is 1
+    while (1){
+        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        if (cur_pkt.is_handshake){
+            // send ACK back if it is a handshake msg
+            sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        }
+        else{
+            // store first non-handshake packet, pkt.seqnum = 0
+            sendto(send_sockfd, &cur_pkt.seqnum, sizeof(cur_pkt.seqnum), 0, (struct sockaddr *)&client_addr_to, addr_size);
+            fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
+            expected_seq_num=cur_pkt.seqnum+1;
+            break;
+        }
+    }
+
+    
+    
+
 
     // receive all packets
     for (;;) {
