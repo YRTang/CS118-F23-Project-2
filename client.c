@@ -21,21 +21,21 @@ void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, sockl
 }
 
 // Function that will buffer sent packets for us
-int buffer_packet(struct packet *pkt, struct packet *buffer, short ack_num)
+int add_to_buffer(struct packet *pkt, struct packet *buffer, short last_acked_num)
 {
-    int ind = pkt->seqnum - ack_num;
-    if (ind < 0)
+    int idx = pkt->seqnum - last_acked_num;
+    if (idx < 0)
     {
         printf("Already received ACK up to packet %d, which occurs after packet %d\n", ack_num, pkt->seqnum);
         return -1;
     }
-    if (ind >= BUFFER_SIZE)
+    if (idx >= BUFFER_SIZE)
     {
         printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, ack_num);
         return -1;
     }
-    buffer[ind] = *pkt;
-    return ind;
+    buffer[idx] = *pkt;
+    return idx;
 }
 
 // Send all packets that are not acked within a window
@@ -84,15 +84,23 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
         if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
             // Timeout reached, return -2 to deal with it in the main
-            return -2;
+            return -1;
         }
         else
         {
-            perror("Recvfrom failed");
-            return -1;
+            perror("recv_ack() failed");
+            exit(1);
         }
     }
     return ack_num;
+}
+
+void update_buffer(struct packet *buffer, int ack_num){
+    int recv_count = pkt->seqnum - last_acked_num;
+    for (int i = recv_count; i < BUFFER_SIZE; i++)
+    {
+        buffer[i - recv_count] = buffer[i];
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -104,11 +112,13 @@ int main(int argc, char *argv[]) {
     // struct packet ack_pkt;
     // char buffer[PAYLOAD_SIZE];
     short seq_num = 0;
+    short newly_acked;
     short ack_num = (-1) * INITIAL_WINDOW_SIZE;
     // char last = 0;
     // char ack = 0;
+    int duplicate_ack_count;
 
-    //struct packet unacked_buffer[BUFFER_SIZE];
+    struct packet unacked_buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
     tv.tv_sec = 0;
@@ -190,21 +200,39 @@ int main(int argc, char *argv[]) {
     // srand(time(NULL));   // initialization
     // seq_num = rand();
 
-    // Consistently send packets to the server, and receive ACK
-    // Send: Initially N packets (window_size = N); Later, 1 packet at a time
-    // Receive: One ACK_packet at a time
-    // seq_num = [1:packet_num], ack_num = [0:packet_num]
+    // send packets to the server, and receive ACK
     while (ack_num < packet_num-1){
         send_ready_packets(&seq_num, ack_num, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
 
         // buffer packet
-        //buffer_packet(&pkt, unacked_buffer, ack_num);
+        add_to_buffer(&pkt, unacked_buffer, ack_num);
 
         // receive ack
-        ack_num =  recv_ack(listen_sockfd, &server_addr_from, addr_size);
-        printf("Received ACK=%d\n", ack_num);
+        newly_acked =  recv_ack(listen_sockfd, &server_addr_from, addr_size);
+        printf("Received ACK=%d\n", newly_acked);
         
         // handle ack -> packet lost OR timeout
+        if (newly_acked == -1){
+            // Timeout
+            // TODO: adjust cwnd
+        }
+        else if (newly_acked == ack_num){
+            // Fast transmit
+            duplicate_ack_count++;
+            if (duplicate_ack_count == 3){
+                // TODO: adjust cwnd
+            }
+        }
+        else if (newly_acked < ack_num){
+            // ignore late ack
+            continue;
+        }
+        else{
+            // Normal case
+            ack_num = newly_acked;
+            update_buffer(unacked_buffer, ack_num);
+            duplicate_ack_count = 0;
+        }
     }
 
     // Close the socket
@@ -213,4 +241,3 @@ int main(int argc, char *argv[]) {
     close(send_sockfd);
     return 0;
 }
-

@@ -1,12 +1,17 @@
 Please concisely describe your congestion control scheme here.
 No need to be verbose, brief descriptions/bullet points are preferred.
 
-Points to notice:
+Notice (to be deleted):
 1. Client-proxy-server:
     6001 -> 5002 -> 6002
     6002 -> 5001 -> 6001
 2. Packts can be lost or reordered
 3. Max packet size is 1200 Bytes
-4. Question: may only use UDP socket??
-5. Fix timeout should be sufficient
-6. Two options to implement RDT: Go-Back-N or Selective Repeat
+4. Fix timeout should be sufficient
+
+
+sequence number range is [0:packet_num-1]
+ack number range is [0:packet_num-1]
+Handshake ACK from client is set to 1 to indicate correct establishment, and it has nothing to do with following data's seq_num.
+
+The initial window size is 1, and it cannot be modified.
