@@ -66,34 +66,40 @@ int main() {
     //receive tcp handshake msg and get # packet need to get
     recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
     int num_packets = cur_pkt.total_pck_num;
-    printf("Received handshake\n");
-    printf("num_packets=%d", num_packets);
+    printf("Received handshake, num_packets=%d\n", num_packets);
 
     //write tcp handshake msg to file
-    fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
+    //fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
 
     //send ack back to client
     sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
     
 
-    //if receive duplicate handshake msg
+    //receive until non-handshake msg
     while (cur_pkt.is_handshake){
         // receive handshake msg but not store it, send ack back
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
         sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
     }
 
+    // store first non-handshake packet, pkt.seqnum = 1
+    fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
+    expected_seq_num++;
+
     // receive all packets
     for (;;) {
-        if (expected_seq_num >= num_packets){
+        if (expected_seq_num > num_packets){
+            printf("breaked\n");
             break;
         }
         // receive packets
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+
         int buffered_index = cur_pkt.seqnum - expected_seq_num;
+        printf("buffer packet #%d\n", buffered_index);
         if ((buffered_index >= 0) && (buffered_index < BUFFER_SIZE)){
             // buffer packets
-            if (recv_buffer[buffered_index].is_received != 0){
+            if (recv_buffer[buffered_index].is_received == 0){
                 // 0 means not receive this packet before, buffer it
                 recv_buffer[buffered_index].pkt = cur_pkt;
                 recv_buffer[buffered_index].is_received = 1;
@@ -119,7 +125,8 @@ int main() {
         }
 
         // send ack back to client
-        sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        int last_recv_seq_num = expected_seq_num - 1;
+        sendto(send_sockfd, &last_recv_seq_num, sizeof(last_recv_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
     }
 
     fclose(fp);

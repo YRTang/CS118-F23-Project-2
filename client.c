@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     // char last = 0;
     // char ack = 0;
 
-    struct packet buffer[BUFFER_SIZE];
+    //struct packet buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
     tv.tv_sec = 0;
@@ -165,18 +165,16 @@ int main(int argc, char *argv[]) {
 
     // Calculate required packet size
     fseek(fp, 0, SEEK_END);
-    int file_size = ftell(fp);
+    double file_size = (double)ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    int packet_num = (int)ceil(file_size / PAYLOAD_SIZE);
+    int packet_num = (int)ceil(file_size / (double)PAYLOAD_SIZE);
     printf("packet_num is %d\n", packet_num);
 
     // Handshake to establish connection
     // Do not include data in the packet (empty payload)
     build_packet(&pkt, seq_num, ack_num, 0, "", 1, packet_num);
-    printf("Build the handshake\n");
     send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
-    printf("Sent the handshake\n");
-    
+
     set_socket_timeout(listen_sockfd, tv);
 
     int connected = 0;
@@ -186,26 +184,27 @@ int main(int argc, char *argv[]) {
         send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
         connected = recv_ack(listen_sockfd, &server_addr_from, addr_size);
     }
-    printf("Connection established");
+    printf("Connection established\n");
 
     // TODO: select random seq_num
     // srand(time(NULL));   // initialization
     // seq_num = rand();
     seq_num++; //=1
-    ack_num++; //=1
+    //ack_num++; //=1
 
     // Consistently send packets to the server, and receive ACK
     // Send: Initially N packets (window_size = N); Later, 1 packet at a time
     // Receive: One ACK_packet at a time
+    // seq_num = [1:packet_num], ack_num = [0:packet_num]
     while (ack_num < packet_num){
         send_ready_packets(&seq_num, ack_num, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
 
         // buffer packet
-        buffer_packet(&pkt, buffer, ack_num);
+        //buffer_packet(&pkt, buffer, ack_num);
 
         // receive ack
         ack_num =  recv_ack(listen_sockfd, &server_addr_from, addr_size);
-        printf("Received ACK=%d/n", ack_num);
+        printf("Received ACK=%d\n", ack_num);
         
         // handle ack -> packet lost OR timeout
     }
