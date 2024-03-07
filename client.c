@@ -38,20 +38,21 @@ int add_to_buffer(struct packet *pkt, struct packet *buffer, short last_acked_nu
     return idx;
 }
 
-// Send all packets that are not acked within a window
-void send_ready_packets(short *seq_num,
+// Send all packets within the window (cwnd) starting from first unacked packet
+void send_window_packets(short *seq_num,
                         short ack_num,
+                        int cwnd,
                         FILE *fp,
                         struct packet *pkt, 
                         int send_sock,
                         struct sockaddr_in *addr, 
                         socklen_t addr_size){
     int unsent_num = *seq_num - ack_num;
-    // TODO: Adjust due to cwnd
-    // int num_to_send = cwnd - num_unacked;
+    int num_to_send = cwnd - unsent_num;
+    printf("cwnd=%d, num_to_send=%d, ", cwnd, num_to_send);
     char payload[PAYLOAD_SIZE];
     int data_len;
-    for (int i = 0; i < unsent_num; i++)
+    for (int i = 0; i < num_to_send; i++)
     {
         // Read in the file
         data_len = fread(payload, 1, PAYLOAD_SIZE, fp);
@@ -112,9 +113,9 @@ int main(int argc, char *argv[]) {
     // char buffer[PAYLOAD_SIZE];
     short seq_num = 0;
     short newly_acked;
-    short ack_num = (-1) * INITIAL_WINDOW_SIZE;
-    // char last = 0;
-    // char ack = 0;
+    short ack_num = 0;
+    int cwnd = 0;
+    int ssthresh = 5;  // TBD
     int duplicate_ack_count;
 
     struct packet unacked_buffer[BUFFER_SIZE];
@@ -201,7 +202,11 @@ int main(int argc, char *argv[]) {
 
     // send packets to the server, and receive ACK
     while (ack_num < packet_num-1){
-        send_ready_packets(&seq_num, ack_num, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
+        if (cwnd <= ssthresh){
+            cwnd++;
+        }
+        send_window_packets(&seq_num, ack_num, cwnd, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
+        
 
         // buffer packet
         add_to_buffer(&pkt, unacked_buffer, ack_num);
@@ -214,12 +219,16 @@ int main(int argc, char *argv[]) {
         if (newly_acked == -1){
             // Timeout
             // TODO: adjust cwnd
+            // TODO: resend packet
+            ssthresh = fmax((int)cwnd / 2, 2);
+            cwnd = INITIAL_WINDOW_SIZE;
         }
         else if (newly_acked == ack_num){
             // Fast transmit
             duplicate_ack_count++;
             if (duplicate_ack_count == 3){
                 // TODO: adjust cwnd
+                // TODO: resend packet
             }
         }
         else if (newly_acked < ack_num){
