@@ -51,13 +51,13 @@ void send_window_packets(short *seq_num,
                         struct packet *buffer){
     int unsent_num = *seq_num - ack_num;
     int num_to_send = cwnd - unsent_num;
-    printf("cwnd=%d, num_to_send=%d, ", cwnd, num_to_send);
+    printf("\ncwnd=%d, send %d packets: ", cwnd, num_to_send);
     char payload[PAYLOAD_SIZE];
     int data_len;
+    printf("\nAdd to buffer: ");
     for (int i = 0; i < num_to_send; i++)
     {
         // Read in the file
-        printf("seq_num=%d, ", *seq_num);
         data_len = fread(payload, 1, PAYLOAD_SIZE, fp);
         if (data_len < 0)
         {
@@ -65,9 +65,10 @@ void send_window_packets(short *seq_num,
             exit(1);
         }
         build_packet(pkt, *seq_num, ack_num, data_len, payload, 0, pkt->total_pck_num);
-        printf("pkt.length=%d, ", data_len);
+        //printf("pkt.length=%d, ", data_len);
         send_packet(pkt, send_sock, addr, addr_size);
         add_to_buffer(pkt, buffer, ack_num);
+        printf("buffer[%d]=#%d, ", pkt->seqnum-ack_num, pkt->seqnum);
         (*seq_num)++;
     }
 }
@@ -87,7 +88,11 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
     int ack_num;
     if (recvfrom(sockfd, &ack_num, sizeof(ack_num), 0, (struct sockaddr *)addr, &addr_size) < 0)
     {
-        if (errno == EWOULDBLOCK || errno == EAGAIN)
+        if (errno == ENOTCONN){
+            perror("recv_ack(): connection ends");
+            exit(1);
+        }
+        else if (errno == EWOULDBLOCK || errno == EAGAIN)
         {
             // Timeout reached, return -2 to deal with it in the main
             return -1;
@@ -101,13 +106,13 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
     return ack_num;
 }
 
-void update_buffer(struct packet *buffer, int recv_count)
+void update_buffer(struct packet *buffer, int pkts_to_dequeue)
 {
-    printf("update_buffer():\n");
-    for (int i = recv_count; i < BUFFER_SIZE; i++)
+    printf("delete %d from buffer: ", pkts_to_dequeue);
+    for (int i = pkts_to_dequeue; i < BUFFER_SIZE; i++)
     {
-        printf("delete packet #%d, ", buffer[i-recv_count].seqnum);
-        buffer[i - recv_count] = buffer[i];
+        printf("#%d, ", buffer[i-pkts_to_dequeue].seqnum);
+        buffer[i - pkts_to_dequeue] = buffer[i];
     }
     printf("\n");
 }
@@ -118,15 +123,12 @@ int main(int argc, char *argv[]) {
     socklen_t addr_size = sizeof(server_addr_to);
     struct timeval tv;
     struct packet pkt;
-    // struct packet ack_pkt;
-    // char buffer[PAYLOAD_SIZE];
     short seq_num = 0;
     short newly_acked;
     short ack_num = 0;
     int cwnd = 0;
     int ssthresh = 5;  // TBD
     int duplicate_ack_count;
-
     struct packet unacked_buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
@@ -210,7 +212,7 @@ int main(int argc, char *argv[]) {
     // seq_num = rand();
 
     // send packets to the server, and receive ACK
-    while (ack_num < packet_num-1){
+    while (ack_num < packet_num){
         if (cwnd <= ssthresh){
             cwnd++;
         }

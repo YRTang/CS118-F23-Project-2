@@ -106,10 +106,10 @@ int main() {
         }
         // receive packets
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
-        printf("pkt.seq_num=%d\n", cur_pkt.seqnum);
+        printf("Receiving packet #%d, ", cur_pkt.seqnum);
 
         int buffered_index = cur_pkt.seqnum - expected_seq_num;
-        printf("buffer packet #%d\n", buffered_index);
+        printf("store at buffer[%d], ", buffered_index);
         if ((buffered_index >= 0) && (buffered_index < BUFFER_SIZE)){
             // buffer packets
             if (recv_buffer[buffered_index].is_received == 0){
@@ -119,12 +119,14 @@ int main() {
             }
             //write sequenced packets in buffer from head to file
             int un_written_idx = 0;
+            printf("write to file: ");
             for (int i = 0; i < BUFFER_SIZE; ++i) {
                 if (!recv_buffer[i].is_received){
                     un_written_idx = i;
                     break;
                 }
                 fwrite(recv_buffer[i].pkt.payload, 1, recv_buffer[i].pkt.length, fp);
+                printf("packet #%d, ", recv_buffer[i].pkt.seqnum);
                 expected_seq_num ++;
             }
 
@@ -140,6 +142,7 @@ int main() {
         // send ack back to client
         //int last_recv_seq_num = expected_seq_num - 1;
         sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        printf("send ACK %d\n", expected_seq_num);
     }
 
     fclose(fp);
