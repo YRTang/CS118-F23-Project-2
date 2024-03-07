@@ -86,9 +86,10 @@ int main() {
         }
         else{
             // store first non-handshake packet, pkt.seqnum = 0
-            sendto(send_sockfd, &cur_pkt.seqnum, sizeof(cur_pkt.seqnum), 0, (struct sockaddr *)&client_addr_to, addr_size);
-            fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
             expected_seq_num=cur_pkt.seqnum+1;
+            sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+            fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
+            
             break;
         }
     }
@@ -105,6 +106,7 @@ int main() {
         }
         // receive packets
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        printf("pkt.seq_num=%d\n", cur_pkt.seqnum);
 
         int buffered_index = cur_pkt.seqnum - expected_seq_num;
         printf("buffer packet #%d\n", buffered_index);
@@ -136,8 +138,8 @@ int main() {
         }
 
         // send ack back to client
-        int last_recv_seq_num = expected_seq_num - 1;
-        sendto(send_sockfd, &last_recv_seq_num, sizeof(last_recv_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        //int last_recv_seq_num = expected_seq_num - 1;
+        sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
     }
 
     fclose(fp);

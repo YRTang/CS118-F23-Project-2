@@ -17,7 +17,7 @@
 #define TIMEOUT 2
 #define MAX_SEQUENCE 1024
 #define PACKET_SIZE 1200
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 10
 #define SYN_NUM 1
 
 

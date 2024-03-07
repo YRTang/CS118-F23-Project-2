@@ -21,17 +21,18 @@ void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, sockl
 }
 
 // Function that will buffer sent packets for us
-int add_to_buffer(struct packet *pkt, struct packet *buffer, short last_acked_num)
+int add_to_buffer(struct packet *pkt, struct packet *buffer, short ack_num)
 {
-    int idx = pkt->seqnum - last_acked_num;
+    int idx = pkt->seqnum - ack_num;
+    //printf("add packet #%d\n", idx);
     if (idx < 0)
     {
-        printf("Already received ACK up to packet %d, which occurs after packet %d\n", last_acked_num, pkt->seqnum);
+        printf("Already received ACK up to packet %d, which occurs after packet %d\n", ack_num, pkt->seqnum);
         return -1;
     }
     if (idx >= BUFFER_SIZE)
     {
-        printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, last_acked_num);
+        printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, ack_num);
         return -1;
     }
     buffer[idx] = *pkt;
@@ -46,7 +47,8 @@ void send_window_packets(short *seq_num,
                         struct packet *pkt, 
                         int send_sock,
                         struct sockaddr_in *addr, 
-                        socklen_t addr_size){
+                        socklen_t addr_size,
+                        struct packet *buffer){
     int unsent_num = *seq_num - ack_num;
     int num_to_send = cwnd - unsent_num;
     printf("cwnd=%d, num_to_send=%d, ", cwnd, num_to_send);
@@ -55,6 +57,7 @@ void send_window_packets(short *seq_num,
     for (int i = 0; i < num_to_send; i++)
     {
         // Read in the file
+        printf("seq_num=%d, ", *seq_num);
         data_len = fread(payload, 1, PAYLOAD_SIZE, fp);
         if (data_len < 0)
         {
@@ -62,8 +65,10 @@ void send_window_packets(short *seq_num,
             exit(1);
         }
         build_packet(pkt, *seq_num, ack_num, data_len, payload, 0, pkt->total_pck_num);
+        printf("pkt.length=%d, ", data_len);
         send_packet(pkt, send_sock, addr, addr_size);
-        (*seq_num)++;      
+        add_to_buffer(pkt, buffer, ack_num);
+        (*seq_num)++;
     }
 }
 
@@ -96,11 +101,15 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
     return ack_num;
 }
 
-void update_buffer(struct packet *buffer, int recv_count){
+void update_buffer(struct packet *buffer, int recv_count)
+{
+    printf("update_buffer():\n");
     for (int i = recv_count; i < BUFFER_SIZE; i++)
     {
+        printf("delete packet #%d, ", buffer[i-recv_count].seqnum);
         buffer[i - recv_count] = buffer[i];
     }
+    printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -205,11 +214,10 @@ int main(int argc, char *argv[]) {
         if (cwnd <= ssthresh){
             cwnd++;
         }
-        send_window_packets(&seq_num, ack_num, cwnd, fp, &pkt, send_sockfd, &server_addr_to, addr_size);
-        
 
-        // buffer packet
-        add_to_buffer(&pkt, unacked_buffer, ack_num);
+        if (seq_num < packet_num){
+            send_window_packets(&seq_num, ack_num, cwnd, fp, &pkt, send_sockfd, &server_addr_to, addr_size, unacked_buffer);
+        }
 
         // receive ack
         newly_acked =  recv_ack(listen_sockfd, &server_addr_from, addr_size);
@@ -219,16 +227,26 @@ int main(int argc, char *argv[]) {
         if (newly_acked == -1){
             // Timeout
             // TODO: adjust cwnd
-            // TODO: resend packet
             ssthresh = fmax((int)cwnd / 2, 2);
             cwnd = INITIAL_WINDOW_SIZE;
+            // resend packet
+            printf("resend packet #%d\n", unacked_buffer[0].seqnum);
+            send_packet(&unacked_buffer[0], send_sockfd, &server_addr_to, addr_size);
         }
         else if (newly_acked == ack_num){
-            // Fast transmit
             duplicate_ack_count++;
+            printf("In loop, duplicate_ack_count=%d\n", duplicate_ack_count);
             if (duplicate_ack_count == 3){
+                // Fast retransmit
                 // TODO: adjust cwnd
-                // TODO: resend packet
+                ssthresh = fmax((int)cwnd / 2, 2);
+                cwnd += 3;
+                // resend packet
+                printf("resend packet #%d\n", unacked_buffer[0].seqnum);
+                send_packet(&unacked_buffer[0], send_sockfd, &server_addr_to, addr_size);
+            }
+            else if (duplicate_ack_count>3){
+                cwnd++;
             }
         }
         else if (newly_acked < ack_num){
