@@ -22,7 +22,7 @@ void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, sockl
 }
 
 // Function that will buffer sent packets for us
-int add_to_buffer(struct packet *pkt, queue<packet> buffer, short ack_num)
+int add_to_buffer(struct packet *pkt, queue<packet> &buffer, short ack_num)
 {
     int idx = pkt->seqnum - ack_num;
     //printf("add packet #%d\n", idx);
@@ -49,7 +49,7 @@ void send_window_packets(short *seq_num,
                         int send_sock,
                         struct sockaddr_in *addr, 
                         socklen_t addr_size,
-                        queue<packet> buffer){
+                        queue<packet> &buffer){
     int unsent_num = *seq_num - ack_num;
     int num_to_send = cwnd - unsent_num;
     printf("\ncwnd=%d, seq_num=%d, ack_num=%d, send %d packets: ", cwnd, *seq_num, ack_num, num_to_send);
@@ -111,7 +111,7 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
     return ack_num;
 }
 
-void update_buffer(queue <packet> buffer, int pkts_to_dequeue)
+void update_buffer(queue <packet> &buffer, int pkts_to_dequeue)
 {
     printf("delete %d from buffer: ", pkts_to_dequeue);
     // for (int i = pkts_to_dequeue; i < BUFFER_SIZE; i++)
