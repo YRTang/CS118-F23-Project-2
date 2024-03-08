@@ -1,17 +1,8 @@
 Please concisely describe your congestion control scheme here.
 No need to be verbose, brief descriptions/bullet points are preferred.
 
-Notice (to be deleted):
-1. Client-proxy-server:
-    6001 -> 5002 -> 6002
-    6002 -> 5001 -> 6001
-2. Packts can be lost or reordered
-3. Max packet size is 1200 Bytes
-4. Fix timeout should be sufficient
-
-
 sequence number range is [0:packet_num-1]
-ack number range is [0:packet_num-1]
+ack number range is [1:packet_num]
 Handshake ACK from client is set to 1 to indicate correct establishment, and it has nothing to do with following data's seq_num.
 
 The initial window size is 1, and it cannot be modified.
@@ -28,3 +19,11 @@ but it will not larger than the BUFFER_SIZE. Once the client receives new ACK, c
 slow start and reset all variables related to fast recovery
 
 For timeout, our congestion control scheme will set ssthresh to cwnd/2 and cwnd to 1 and retransmit the timeout packet
+
+
+Some notices:
+1. ssthresh is optimized to be 5 (most effective)
+2. Payload size is set to be 1180
+3. SYN_NUM is used for handshake establishment, and it can be set to any number (currently 1)
+3. No limit on maximum buffer size with queue implementation
+4. Fix timeout to end TCP communication should be sufficient (1~2sec)
