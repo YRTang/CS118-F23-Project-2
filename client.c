@@ -51,7 +51,7 @@ void send_window_packets(short *seq_num,
                         struct packet *buffer){
     int unsent_num = *seq_num - ack_num;
     int num_to_send = cwnd - unsent_num;
-    printf("\ncwnd=%d, send %d packets: ", cwnd, num_to_send);
+    printf("\ncwnd=%d, seq_num=%d, ack_num=%d, send %d packets: ", cwnd, *seq_num, ack_num, num_to_send);
     char payload[PAYLOAD_SIZE];
     int data_len;
     printf("\nAdd to buffer: ");
@@ -217,6 +217,9 @@ int main(int argc, char *argv[]) {
         if (cwnd <= ssthresh){
             cwnd++;
         }
+        // controll cwnd size
+        cwnd = fmin(cwnd, packet_num - seq_num);
+        cwnd = fmin(cwnd, BUFFER_SIZE);
 
         if (seq_num < packet_num){
             send_window_packets(&seq_num, ack_num, cwnd, fp, &pkt, send_sockfd, &server_addr_to, addr_size, unacked_buffer);
@@ -237,7 +240,7 @@ int main(int argc, char *argv[]) {
             timeout_count++;
 
             // Edge cases: Last ACK from the server is lost
-            if (timeout_count > 20){
+            if (timeout_count > 300){
                 printf("Disconnect\n");
                 break;
             }

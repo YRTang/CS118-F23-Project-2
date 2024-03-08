@@ -109,13 +109,13 @@ int main() {
         printf("Receiving packet #%d, ", cur_pkt.seqnum);
 
         buffered_index = cur_pkt.seqnum - expected_seq_num;
-        printf("store at buffer[%d], ", buffered_index);
         if ((buffered_index >= 0) && (buffered_index < BUFFER_SIZE)){
             // buffer packets
             if (recv_buffer[buffered_index].is_received == 0){
                 // 0 means not receive this packet before, buffer it
                 recv_buffer[buffered_index].pkt = cur_pkt;
                 recv_buffer[buffered_index].is_received = 1;
+                printf("store at buffer[%d], ", buffered_index);
             }
             //write sequenced packets in buffer from head to file
             int un_written_idx = 0;

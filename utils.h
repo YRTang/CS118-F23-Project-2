@@ -17,7 +17,7 @@
 #define TIMEOUT 2
 #define MAX_SEQUENCE 1024
 #define PACKET_SIZE 1200
-#define BUFFER_SIZE 10
+#define BUFFER_SIZE 50
 #define SYN_NUM 1
 
 
@@ -32,7 +32,6 @@ struct packet {
     char payload[PAYLOAD_SIZE];
     int is_handshake;
     int total_pck_num;
-
 };
 
 // Utility function to build a packet
