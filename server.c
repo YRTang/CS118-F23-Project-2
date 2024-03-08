@@ -7,18 +7,17 @@
 #include "utils.h"
 
 
-
-
-
 int main() {
     int listen_sockfd, send_sockfd;
     struct sockaddr_in server_addr, client_addr_from, client_addr_to;
     struct packet cur_pkt;
     socklen_t addr_size = sizeof(client_addr_from);
-    int expected_seq_num;
+    int expected_seq_num = 0;
     const int syn_num = 1;
     // int recv_len;
     // struct packet ack_pkt;
+    int buffered_index;
+
     struct buffer_unit recv_buffer[BUFFER_SIZE];
     for (int i = 0; i < BUFFER_SIZE; ++i) {
         recv_buffer[i].is_received = 0;
@@ -86,29 +85,30 @@ int main() {
         }
         else{
             // store first non-handshake packet, pkt.seqnum = 0
-            expected_seq_num=cur_pkt.seqnum+1;
+            if (cur_pkt.seqnum != 0){
+                // buffer the packet
+                buffered_index = cur_pkt.seqnum - expected_seq_num;
+                recv_buffer[buffered_index].pkt = cur_pkt;
+                recv_buffer[buffered_index].is_received = 1;
+            }
+            else{
+                expected_seq_num=cur_pkt.seqnum+1;
+                fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
+            }
             sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
-            fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
-            
+            printf("receive packet #%d\n", cur_pkt.seqnum);
             break;
         }
     }
 
-    
-    
-
 
     // receive all packets
-    for (;;) {
-        if (expected_seq_num >= num_packets){
-            printf("breaked\n");
-            break;
-        }
+    while (expected_seq_num < num_packets) {
         // receive packets
-        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        int recv_bytes = recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
         printf("Receiving packet #%d, ", cur_pkt.seqnum);
 
-        int buffered_index = cur_pkt.seqnum - expected_seq_num;
+        buffered_index = cur_pkt.seqnum - expected_seq_num;
         printf("store at buffer[%d], ", buffered_index);
         if ((buffered_index >= 0) && (buffered_index < BUFFER_SIZE)){
             // buffer packets

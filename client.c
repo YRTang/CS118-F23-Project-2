@@ -129,6 +129,7 @@ int main(int argc, char *argv[]) {
     int cwnd = 0;
     int ssthresh = 5;  // TBD
     int duplicate_ack_count;
+    int timeout_count = 0;
     struct packet unacked_buffer[BUFFER_SIZE];
 
     // set timer for packet timeout
@@ -228,19 +229,24 @@ int main(int argc, char *argv[]) {
         // handle ack -> packet lost OR timeout
         if (newly_acked == -1){
             // Timeout
-            // TODO: adjust cwnd
             ssthresh = fmax((int)cwnd / 2, 2);
             cwnd = INITIAL_WINDOW_SIZE;
             // resend packet
             printf("resend packet #%d\n", unacked_buffer[0].seqnum);
             send_packet(&unacked_buffer[0], send_sockfd, &server_addr_to, addr_size);
+            timeout_count++;
+
+            // Edge cases: Last ACK from the server is lost
+            if (timeout_count > 20){
+                printf("Disconnect\n");
+                break;
+            }
         }
         else if (newly_acked == ack_num){
             duplicate_ack_count++;
             printf("In loop, duplicate_ack_count=%d\n", duplicate_ack_count);
             if (duplicate_ack_count == 3){
                 // Fast retransmit
-                // TODO: adjust cwnd
                 ssthresh = fmax((int)cwnd / 2, 2);
                 cwnd += 3;
                 // resend packet
@@ -260,6 +266,7 @@ int main(int argc, char *argv[]) {
             update_buffer(unacked_buffer, newly_acked-ack_num);
             ack_num = newly_acked;
             duplicate_ack_count = 0;
+            timeout_count = 0;
         }
     }
 
