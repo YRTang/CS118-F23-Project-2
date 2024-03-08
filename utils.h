@@ -11,13 +11,13 @@
 #define CLIENT_PORT 6001
 #define SERVER_PORT 6002
 #define CLIENT_PORT_TO 5001
-#define PAYLOAD_SIZE 1024
+#define PAYLOAD_SIZE 1180
 #define WINDOW_SIZE 5
 #define INITIAL_WINDOW_SIZE 1
 #define TIMEOUT 2
 #define MAX_SEQUENCE 1024
 #define PACKET_SIZE 1200
-#define BUFFER_SIZE 10
+#define BUFFER_SIZE 50
 #define SYN_NUM 1
 
 
@@ -47,11 +47,6 @@ void build_packet(struct packet* pkt, unsigned short seqnum, unsigned short ackn
     pkt->total_pck_num = total_pck_num;
     memcpy(pkt->payload, payload, length);
 }
-
-struct buffer_unit{
-    struct packet pkt;
-    int is_received;
-};
 
 // Utility function to print a packet
 void printRecv(struct packet* pkt) {

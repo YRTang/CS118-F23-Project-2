@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/time.h>
 #include <errno.h>
 #include <math.h>
 
@@ -11,7 +10,7 @@
 
 
 void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, socklen_t addr_size){
-    int bytes_sent = sendto(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr *)addr, addr_size);
+    ssize_t bytes_sent = sendto(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr *)addr, addr_size);
     if (bytes_sent < 0)
     {
         perror("Error sending packet");
@@ -86,8 +85,11 @@ void set_socket_timeout(int sockfd, struct timeval timeout)
 int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
 {
     int ack_num;
-    if (recvfrom(sockfd, &ack_num, sizeof(ack_num), 0, (struct sockaddr *)addr, &addr_size) < 0)
+    ssize_t recv_num = recvfrom(sockfd, &ack_num, sizeof(ack_num), 0, (struct sockaddr *)addr, &addr_size);
+    printf("recv_syn: %zd, ack_num = %d\n", recv_num, ack_num);
+    if (recv_num < 0)
     {
+        perror("error");
         if (errno == ENOTCONN){
             perror("recv_ack(): connection ends");
             exit(1);
@@ -125,8 +127,8 @@ int main(int argc, char *argv[]) {
     struct packet pkt;
     short seq_num = 0;
     short newly_acked;
-    short ack_num = 0;
-    int cwnd = 0;
+    int ack_num = 0;
+    int cwnd = INITIAL_WINDOW_SIZE;
     int ssthresh = 5;  // TBD
     int duplicate_ack_count;
     int timeout_count = 0;
@@ -134,7 +136,7 @@ int main(int argc, char *argv[]) {
 
     // set timer for packet timeout
     tv.tv_sec = 0;
-    tv.tv_usec = TIMEOUT * 100000;
+    tv.tv_usec = 200000;
 
     // read filename from command line argument
     if (argc != 2) {

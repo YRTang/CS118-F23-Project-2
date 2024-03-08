@@ -7,13 +7,18 @@
 #include "utils.h"
 
 
+struct buffer_unit{
+    struct packet pkt;
+    int is_received;
+};
+
 int main() {
     int listen_sockfd, send_sockfd;
     struct sockaddr_in server_addr, client_addr_from, client_addr_to;
     struct packet cur_pkt;
     socklen_t addr_size = sizeof(client_addr_from);
     int expected_seq_num = 0;
-    const int syn_num = 1;
+    int syn_num = 1;
     // int recv_len;
     // struct packet ack_pkt;
     int buffered_index;
@@ -64,24 +69,24 @@ int main() {
     // handle tcp handshake
 
     //receive tcp handshake msg and get # packet need to get
-    recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+    recvfrom(listen_sockfd, &cur_pkt, sizeof(cur_pkt), 0, (struct sockaddr *)&client_addr_from, &addr_size);
     int num_packets = cur_pkt.total_pck_num;
-    printf("Received handshake, num_packets=%d\n", num_packets);
-
+    printf("Received handshake!, num_packets=%d\n", num_packets);
     //write tcp handshake msg to file
-    //fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
 
     //send ack back to client
-    sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+
+    sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (const struct sockaddr *) &client_addr_to, addr_size);
+    // send_ack(syn_num, send_sockfd, &client_addr_to, addr_size);
     
     // Keep receiving potential duplicated hanshake msg
     // This method can ONLY work when the initial sending window is 1
     // otherwise, there will be re-order issue of storing data
     while (1){
-        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *) &client_addr_from, &addr_size);
         if (cur_pkt.is_handshake){
             // send ACK back if it is a handshake msg
-            sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+            sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (const struct sockaddr *) &client_addr_to, addr_size);
         }
         else{
             // store first non-handshake packet, pkt.seqnum = 0
@@ -95,7 +100,7 @@ int main() {
                 expected_seq_num=cur_pkt.seqnum+1;
                 fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
             }
-            sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+            sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (const struct sockaddr *)&client_addr_to, addr_size);
             printf("receive packet #%d\n", cur_pkt.seqnum);
             break;
         }
@@ -105,7 +110,7 @@ int main() {
     // receive all packets
     while (expected_seq_num < num_packets) {
         // receive packets
-        int recv_bytes = recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
         printf("Receiving packet #%d, ", cur_pkt.seqnum);
 
         buffered_index = cur_pkt.seqnum - expected_seq_num;
@@ -141,7 +146,7 @@ int main() {
 
         // send ack back to client
         //int last_recv_seq_num = expected_seq_num - 1;
-        sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
+        sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (const struct sockaddr *)&client_addr_to, addr_size);
         printf("send ACK %d\n", expected_seq_num);
     }
 
