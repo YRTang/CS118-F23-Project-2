@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
             timeout_count++;
 
             // Edge cases: Last ACK from the server is lost
-            if (timeout_count > 300){
+            if (timeout_count > 150){
                 printf("Disconnect\n");
                 break;
             }

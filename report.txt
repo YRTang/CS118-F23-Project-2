@@ -15,3 +15,15 @@ ack number range is [0:packet_num-1]
 Handshake ACK from client is set to 1 to indicate correct establishment, and it has nothing to do with following data's seq_num.
 
 The initial window size is 1, and it cannot be modified.
+
+We have implemented an AIMD congestion control algorithm
+Additive Increase:
+- The client makes use of a slow start algorithm, increasing the cwnd size by 1 at each ACK until reaching the slow start threshold
+- After passing the slow start threshold, an additive increase algorithm is used, increasing the cwnd by 1 after every cwnd ACKs
+Multiplicative Decrease:
+- Upon receiving 3 duplicate ACKs, fast retransmit is used to resend the missing packet
+    - Then, ssthresh is set to max(2, cwnd/2)
+    - cwnd is set to ssthresh + 3
+    - For every subsequent duplicate, fast recovery is used, with cwnd increasing by 1
+- Upon timeout, we set cwnd to 1 and ssthresh to max(2, cwnd/2)
+- These methods are pretty much as outlined in the chapter 3 slides
