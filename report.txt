@@ -16,14 +16,15 @@ Handshake ACK from client is set to 1 to indicate correct establishment, and it 
 
 The initial window size is 1, and it cannot be modified.
 
-We have implemented an AIMD congestion control algorithm
-Additive Increase:
-- The client makes use of a slow start algorithm, increasing the cwnd size by 1 at each ACK until reaching the slow start threshold
-- After passing the slow start threshold, an additive increase algorithm is used, increasing the cwnd by 1 after every cwnd ACKs
-Multiplicative Decrease:
-- Upon receiving 3 duplicate ACKs, fast retransmit is used to resend the missing packet
-    - Then, ssthresh is set to max(2, cwnd/2)
-    - cwnd is set to ssthresh + 3
-    - For every subsequent duplicate, fast recovery is used, with cwnd increasing by 1
-- Upon timeout, we set cwnd to 1 and ssthresh to max(2, cwnd/2)
-- These methods are pretty much as outlined in the chapter 3 slides
+We basically use AIMD combined with the slow start and fast recovery as our congestion control scheme.
+
+If an ACK is successfully received by the client, we increase the cwnd by 1 and the cwnd will not larger than ssthresh
+if current status is slow start.
+
+If the number of duplicate packets is equal to three in the client site, we will use fast retransmit to resend the loss
+packet, and our congestion control strategy status will change to fast recovery, the ssthresh is set to cwnd/2 and the
+cwnd is set to ssthresh+3. For every duplicate ACK received in the fast recovery status, the cwnd will increase by 1
+but it will not larger than the BUFFER_SIZE. Once the client receives new ACK, congestion control status will go back to
+slow start and reset all variables related to fast recovery
+
+For timeout, our congestion control scheme will set ssthresh to cwnd/2 and cwnd to 1 and retransmit the timeout packet
