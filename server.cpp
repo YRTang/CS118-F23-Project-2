@@ -1,10 +1,12 @@
 #include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
-
-#include "utils.h"
+#include "utils.hpp"
+#include <iostream>
+#include <deque>
+using namespace std;
 
 
 int main() {
@@ -18,7 +20,8 @@ int main() {
     // struct packet ack_pkt;
     int buffered_index;
 
-    struct buffer_unit recv_buffer[BUFFER_SIZE];
+//    struct buffer_unit recv_buffer[BUFFER_SIZE];
+    deque<buffer_unit> recv_buffer(50);
     for (int i = 0; i < BUFFER_SIZE; ++i) {
         recv_buffer[i].is_received = 0;
     }
@@ -59,17 +62,13 @@ int main() {
     // Open the target file for writing (always write to output.txt)
     FILE *fp = fopen("output.txt", "wb");
 
-    // TODO: Receive file from the client and save it as output.txt
-
     // handle tcp handshake
 
     //receive tcp handshake msg and get # packet need to get
     recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
     int num_packets = cur_pkt.total_pck_num;
-    printf("Received handshake, num_packets=%d\n", num_packets);
+    //printf("Received handshake, num_packets=%d\n", num_packets);
 
-    //write tcp handshake msg to file
-    //fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
 
     //send ack back to client
     sendto(send_sockfd, &syn_num, sizeof(syn_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
@@ -89,14 +88,14 @@ int main() {
                 // buffer the packet
                 buffered_index = cur_pkt.seqnum - expected_seq_num;
                 recv_buffer[buffered_index].pkt = cur_pkt;
-                recv_buffer[buffered_index].is_received = 1;
+                recv_buffer[buffered_index].is_received= 1;
             }
             else{
                 expected_seq_num=cur_pkt.seqnum+1;
                 fwrite(cur_pkt.payload, 1, cur_pkt.length, fp);
             }
             sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
-            printf("receive packet #%d\n", cur_pkt.seqnum);
+            //printf("receive packet #%d\n", cur_pkt.seqnum);
             break;
         }
     }
@@ -105,8 +104,8 @@ int main() {
     // receive all packets
     while (expected_seq_num < num_packets) {
         // receive packets
-        int recv_bytes = recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
-        printf("Receiving packet #%d, ", cur_pkt.seqnum);
+        recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
+        //printf("Receiving packet #%d, ", cur_pkt.seqnum);
 
         buffered_index = cur_pkt.seqnum - expected_seq_num;
         if ((buffered_index >= 0) && (buffered_index < BUFFER_SIZE)){
@@ -115,18 +114,18 @@ int main() {
                 // 0 means not receive this packet before, buffer it
                 recv_buffer[buffered_index].pkt = cur_pkt;
                 recv_buffer[buffered_index].is_received = 1;
-                printf("store at buffer[%d], ", buffered_index);
+                //printf("store at buffer[%d], ", buffered_index);
             }
             //write sequenced packets in buffer from head to file
             int un_written_idx = 0;
-            printf("write to file: ");
+            //printf("write to file: ");
             for (int i = 0; i < BUFFER_SIZE; ++i) {
                 if (!recv_buffer[i].is_received){
                     un_written_idx = i;
                     break;
                 }
                 fwrite(recv_buffer[i].pkt.payload, 1, recv_buffer[i].pkt.length, fp);
-                printf("packet #%d, ", recv_buffer[i].pkt.seqnum);
+                //printf("packet #%d, ", recv_buffer[i].pkt.seqnum);
                 expected_seq_num ++;
             }
 
@@ -142,7 +141,7 @@ int main() {
         // send ack back to client
         //int last_recv_seq_num = expected_seq_num - 1;
         sendto(send_sockfd, &expected_seq_num, sizeof(expected_seq_num), 0, (struct sockaddr *)&client_addr_to, addr_size);
-        printf("send ACK %d\n", expected_seq_num);
+        //printf("send ACK %d\n", expected_seq_num);
     }
 
     fclose(fp);

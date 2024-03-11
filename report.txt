@@ -15,3 +15,16 @@ ack number range is [0:packet_num-1]
 Handshake ACK from client is set to 1 to indicate correct establishment, and it has nothing to do with following data's seq_num.
 
 The initial window size is 1, and it cannot be modified.
+
+We basically use AIMO combined with the slow start and fast recovery as our congestion control scheme.
+
+If an ACK is successfully received by the client, we increase the cwnd by 1 and the cwnd will not larger than ssthresh
+if current status is slow start.
+
+If the number of duplicate packets is equal to three in the client site, we will use fast retransmit to resend the loss
+packet, and our congestion control strategy status will change to fast recovery, the ssthresh is set to cwnd/2 and the
+cwnd is set to ssthresh+3. For every duplicate ACK received in the fast recovery status, the cwnd will increase by 1
+but it will not larger than the BUFFER_SIZE. Once the client receives new ACK, congestion control status will go back to
+slow start and reset all variables related to fast recovery
+
+For timeout, our congestion control scheme will set ssthresh to cwnd/2 and cwnd to 1 and retransmit the timeout packet

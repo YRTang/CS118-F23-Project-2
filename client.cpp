@@ -1,14 +1,15 @@
 #include <arpa/inet.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
 #include <sys/time.h>
-#include <errno.h>
-#include <math.h>
-
-#include "utils.h"
-
+#include <cerrno>
+#include <cmath>
+#include "utils.hpp"
+#include <iostream>
+#include <deque>
+using namespace std;
 
 void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, socklen_t addr_size){
     int bytes_sent = sendto(sockfd, pkt, PACKET_SIZE, 0, (struct sockaddr *)addr, addr_size);
@@ -51,10 +52,10 @@ void send_window_packets(short *seq_num,
                         struct packet *buffer){
     int unsent_num = *seq_num - ack_num;
     int num_to_send = cwnd - unsent_num;
-    printf("\ncwnd=%d, seq_num=%d, ack_num=%d, send %d packets: ", cwnd, *seq_num, ack_num, num_to_send);
+    //printf("\ncwnd=%d, seq_num=%d, ack_num=%d, send %d packets: ", cwnd, *seq_num, ack_num, num_to_send);
     char payload[PAYLOAD_SIZE];
     int data_len;
-    printf("\nAdd to buffer: ");
+    //printf("\nAdd to buffer: ");
     for (int i = 0; i < num_to_send; i++)
     {
         // Read in the file
@@ -68,7 +69,7 @@ void send_window_packets(short *seq_num,
         //printf("pkt.length=%d, ", data_len);
         send_packet(pkt, send_sock, addr, addr_size);
         add_to_buffer(pkt, buffer, ack_num);
-        printf("buffer[%d]=#%d, ", pkt->seqnum-ack_num, pkt->seqnum);
+        //printf("buffer[%d]=#%d, ", pkt->seqnum-ack_num, pkt->seqnum);
         (*seq_num)++;
     }
 }
@@ -108,13 +109,13 @@ int recv_ack(int sockfd, struct sockaddr_in *addr, socklen_t addr_size)
 
 void update_buffer(struct packet *buffer, int pkts_to_dequeue)
 {
-    printf("delete %d from buffer: ", pkts_to_dequeue);
+    //printf("delete %d from buffer: ", pkts_to_dequeue);
     for (int i = pkts_to_dequeue; i < BUFFER_SIZE; i++)
     {
-        printf("#%d, ", buffer[i-pkts_to_dequeue].seqnum);
+        // printf("#%d, ", buffer[i-pkts_to_dequeue].seqnum);
         buffer[i - pkts_to_dequeue] = buffer[i];
     }
-    printf("\n");
+    //printf("\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -178,7 +179,7 @@ int main(int argc, char *argv[]) {
 
     // Open file for reading
     FILE *fp = fopen(filename, "rb");
-    if (fp == NULL) {
+    if (fp == nullptr) {
         perror("Error opening file");
         close(listen_sockfd);
         close(send_sockfd);
@@ -190,13 +191,14 @@ int main(int argc, char *argv[]) {
     double file_size = (double)ftell(fp);
     fseek(fp, 0, SEEK_SET);
     int packet_num = (int)ceil(file_size / (double)PAYLOAD_SIZE);
-    printf("packet_num is %d\n", packet_num);
+    //printf("packet_num is %d\n", packet_num);
 
     // Handshake to establish connection
     // Do not include data in the packet (empty payload)
     build_packet(&pkt, seq_num, ack_num, 0, "", 1, packet_num);
     send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
 
+    // set const timeout
     set_socket_timeout(listen_sockfd, tv);
 
     // the server will send SYN (ack_num) = 1 if the handshake is established
@@ -206,11 +208,8 @@ int main(int argc, char *argv[]) {
         send_packet(&pkt, send_sockfd, &server_addr_to, addr_size);
         recv_SYN = recv_ack(listen_sockfd, &server_addr_from, addr_size);
     }
-    printf("Connection established\n");
+    //printf("Connection established\n");
 
-    // TODO: select random seq_num
-    // srand(time(NULL));   // initialization
-    // seq_num = rand();
 
     // send packets to the server, and receive ACK
     while (ack_num < packet_num){
@@ -218,8 +217,8 @@ int main(int argc, char *argv[]) {
             cwnd++;
         }
         // controll cwnd size
-        cwnd = fmin(cwnd, packet_num - seq_num);
-        cwnd = fmin(cwnd, BUFFER_SIZE);
+        // cwnd = fmin(cwnd, packet_num - seq_num);
+        cwnd = min(cwnd, BUFFER_SIZE);
 
         if (seq_num < packet_num){
             send_window_packets(&seq_num, ack_num, cwnd, fp, &pkt, send_sockfd, &server_addr_to, addr_size, unacked_buffer);
@@ -227,36 +226,37 @@ int main(int argc, char *argv[]) {
 
         // receive ack
         newly_acked =  recv_ack(listen_sockfd, &server_addr_from, addr_size);
-        printf("Received ACK=%d\n", newly_acked);
+        //printf("Received ACK=%d\n", newly_acked);
         
         // handle ack -> packet lost OR timeout
         if (newly_acked == -1){
             // Timeout
-            ssthresh = fmax((int)cwnd / 2, 2);
+            ssthresh = max((int)cwnd / 2, 2);
             cwnd = INITIAL_WINDOW_SIZE;
             // resend packet
-            printf("resend packet #%d\n", unacked_buffer[0].seqnum);
+            //printf("resend packet #%d\n", unacked_buffer[0].seqnum);
             send_packet(&unacked_buffer[0], send_sockfd, &server_addr_to, addr_size);
             timeout_count++;
 
             // Edge cases: Last ACK from the server is lost
-            if (timeout_count > 300){
-                printf("Disconnect\n");
+            if (timeout_count > 150){
+                //printf("Disconnect\n");
                 break;
             }
         }
         else if (newly_acked == ack_num){
             duplicate_ack_count++;
-            printf("In loop, duplicate_ack_count=%d\n", duplicate_ack_count);
+            //printf("In loop, duplicate_ack_count=%d\n", duplicate_ack_count);
             if (duplicate_ack_count == 3){
                 // Fast retransmit
-                ssthresh = fmax((int)cwnd / 2, 2);
+                ssthresh = max((int)cwnd / 2, 2);
                 cwnd += 3;
                 // resend packet
-                printf("resend packet #%d\n", unacked_buffer[0].seqnum);
+                //printf("resend packet #%d\n", unacked_buffer[0].seqnum);
                 send_packet(&unacked_buffer[0], send_sockfd, &server_addr_to, addr_size);
             }
             else if (duplicate_ack_count>3){
+                // fast recovery
                 cwnd++;
             }
         }
