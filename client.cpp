@@ -22,22 +22,16 @@ void send_packet(struct packet *pkt, int sockfd, struct sockaddr_in *addr, sockl
 }
 
 // Function that will buffer sent packets for us
-int add_to_buffer(struct packet *pkt, queue<packet> &buffer, short ack_num)
+void add_to_buffer(struct packet *pkt, queue<packet> &buffer, short ack_num)
 {
     int idx = pkt->seqnum - ack_num;
     //printf("add packet #%d\n", idx);
-    if (idx < 0)
+    if (idx < 0 || idx >= BUFFER_SIZE)
     {
-        //printf("Already received ACK up to packet %d, which occurs after packet %d\n", ack_num, pkt->seqnum);
-        return -1;
-    }
-    if (idx >= BUFFER_SIZE)
-    {
-        //printf("Exceeded maximum window size with packet %d while waiting for ack for %d\n", pkt->seqnum, ack_num);
-        return -1;
+        perror("Error detected in add to buffer");
+        exit(1);
     }
     buffer.push(*pkt);
-    return idx;
 }
 
 // Send all packets within the window (cwnd) starting from first unacked packet
@@ -68,10 +62,7 @@ void send_window_packets(short *seq_num,
         build_packet(pkt, *seq_num, ack_num, data_len, payload, 0, pkt->total_pck_num);
         //printf("pkt.length=%d, ", data_len);
         send_packet(pkt, send_sock, addr, addr_size);
-        if (add_to_buffer(pkt, buffer, ack_num)<0){
-            perror("Error in add_to_buffer");
-            exit(1);
-        }
+        add_to_buffer(pkt, buffer, ack_num);
         //printf("buffer[%d]=#%d, ", pkt->seqnum-ack_num, pkt->seqnum);
         (*seq_num)++;
     }
@@ -82,7 +73,7 @@ void set_socket_timeout(int sockfd, struct timeval timeout)
 {
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
     {
-        perror("Error setting socket timeout");
+        perror("Error setting timeout");
         exit(1);
     }
 }

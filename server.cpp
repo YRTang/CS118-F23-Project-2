@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include "utils.hpp"
 #include <iostream>
-#include <deque>
 using namespace std;
 
 
@@ -16,12 +15,10 @@ int main() {
     socklen_t addr_size = sizeof(client_addr_from);
     int expected_seq_num = 0;
     const int syn_num = 1;
-    // int recv_len;
-    // struct packet ack_pkt;
     int buffered_index;
 
     // struct buffer_unit recv_buffer[BUFFER_SIZE];
-    deque<buffer_unit> recv_buffer(50);
+    struct buffer_unit recv_buffer[BUFFER_SIZE];
     for (int i = 0; i < BUFFER_SIZE; ++i) {
         recv_buffer[i].is_received = 0;
     }
@@ -76,7 +73,7 @@ int main() {
     // Keep receiving potential duplicated hanshake msg
     // This method can ONLY work when the initial sending window is 1
     // otherwise, there will be re-order issue of storing data
-    while (1){
+    while (true){
         recvfrom(listen_sockfd, &cur_pkt, PACKET_SIZE, 0, (struct sockaddr *)&client_addr_from, &addr_size);
         if (cur_pkt.is_handshake){
             // send ACK back if it is a handshake msg

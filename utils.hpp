@@ -15,7 +15,7 @@
 #define INITIAL_WINDOW_SIZE 1
 #define TIMEOUT 2
 #define PACKET_SIZE 1200
-#define BUFFER_SIZE 50
+#define BUFFER_SIZE 100
 #define SYN_NUM 1
 
 
