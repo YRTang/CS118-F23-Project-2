@@ -1,8 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 // MACROS
 #define SERVER_IP "127.0.0.1"
@@ -12,7 +12,6 @@
 #define SERVER_PORT 6002
 #define CLIENT_PORT_TO 5001
 #define PAYLOAD_SIZE 1180
-#define WINDOW_SIZE 5
 #define INITIAL_WINDOW_SIZE 1
 #define TIMEOUT 2
 #define PACKET_SIZE 1200
